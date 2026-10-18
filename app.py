@@ -2,10 +2,12 @@ import streamlit as st
 import google.generativeai as genai
 import urllib.parse
 import re
+import random
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="AI Assistant", page_icon="🤖", layout="centered")
 
-# Neeche aur ooper ke sab Streamlit badges/watermarks ko mukammal gayab karne ke liye CSS
+# CSS se header aur footer hide karna
 hide_all_style = """
     <style>
     #MainMenu {visibility: hidden; display: none !important;}
@@ -16,31 +18,34 @@ hide_all_style = """
     [data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
     div[class*="viewerBadge"] {display: none !important;}
     div[class*="ProfileContainer"] {display: none !important;}
-    div[class^="viewerBadge"] {display: none !important;}
-    a[href*="streamlit.io"] {display: none !important;}
     </style>
 """
 st.markdown(hide_all_style, unsafe_allow_html=True)
 
+# JavaScript se "Hosted with Streamlit" button ko bilkul khatam karna
+components.html("""
+<script>
+function hideStreamlitBadges() {
+    try {
+        const topDoc = window.top.document;
+        topDoc.querySelectorAll('[href*="streamlit.io"], div[class*="viewerBadge"], [data-testid="manage-app-button"]').forEach(el => {
+            el.style.display = 'none';
+            el.style.visibility = 'hidden';
+        });
+    } catch (e) {}
+}
+setInterval(hideStreamlitBadges, 300);
+</script>
+""", height=0)
+
 st.title("🤖 AI Assistant")
-st.caption("Smart AI • Text Chat & High Quality Image Generation")
+st.caption("AI Assistant • High Definition Thumbnail & Image Generator")
 
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
-# ChatGPT jese quick starter buttons
-if len(st.session_state.messages) == 0:
-    st.write("### How can I help you today?")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🎨 Create a realistic car"):
-            st.session_state.starter_prompt = "Generate a photorealistic image of a luxury sports car parked on a modern city street"
-    with col2:
-        if st.button("💡 Ask anything"):
-            st.session_state.starter_prompt = "Tell me 3 interesting facts about the universe."
 
 # Chat history
 for message in st.session_state.messages:
@@ -50,10 +55,7 @@ for message in st.session_state.messages:
         else:
             st.markdown(message["content"])
 
-# User prompt
-prompt = st.chat_input("Message AI Assistant...")
-if "starter_prompt" in st.session_state:
-    prompt = st.session_state.pop("starter_prompt")
+prompt = st.chat_input("Type your message or image request...")
 
 if prompt:
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -61,17 +63,14 @@ if prompt:
         st.markdown(prompt)
 
     try:
-        # Prompt ko behtar samajhne aur exact image banane ki instruction
         system_instruction = (
-            "You are an expert AI Assistant. "
-            "1. When the user asks to create, draw, generate, or make an image/picture/photo, "
-            "you MUST convert their exact request into a highly detailed, photorealistic visual English description. "
-            "Format strictly as: [GENERATE_IMAGE: highly detailed English description with visual details]. "
-            "Never ignore any detail the user mentioned. "
-            "2. For regular questions: Respond politely matching the user's language. "
-            "If user uses English -> reply in English. "
-            "If user uses Roman Urdu -> reply in Roman Urdu. "
-            "If user uses Urdu script -> reply in Urdu script."
+            "You are a professional AI Assistant and expert Graphic/Thumbnail Designer. "
+            "1. When the user asks for an image, thumbnail, banner, or drawing: "
+            "If they mention text/words to write (e.g. 'MR.PATLLO ENJOY FREE GIFT'), YOU MUST include the text in quotes like: "
+            "bold vibrant 3D text headline saying \"MR.PATLLO ENJOY FREE GIFT\". "
+            "If they ask for a YouTube thumbnail, specify vibrant lighting, cinematic contrast, 16:9 ratio. "
+            "Strictly output ONLY in this format: [GENERATE_IMAGE: detailed prompt]. "
+            "2. For general talk: Match user language (English, Roman Urdu, or Urdu). Be polite and concise."
         )
         model = genai.GenerativeModel(
             model_name="gemini-3.8-flash",
@@ -79,25 +78,30 @@ if prompt:
         )
         
         with st.chat_message("assistant"):
-            with st.spinner("Generating response..."):
+            with st.spinner("Creating..."):
                 response = model.generate_content(prompt)
                 response_text = response.text.strip()
                 
-                # Image Generate karne ka block
                 if "[GENERATE_IMAGE:" in response_text:
                     match = re.search(r'\[GENERATE_IMAGE:\s*(.*?)\]', response_text)
                     image_prompt = match.group(1).strip() if match else prompt
+                    
+                    # Thumbnail ratio ke liye 1280x720
+                    is_thumbnail = any(k in prompt.lower() for k in ["thumbnail", "banner", "youtube", "wide"])
+                    width, height = (1280, 720) if is_thumbnail else (1024, 1024)
+                    
+                    seed = random.randint(1, 999999)
                     encoded = urllib.parse.quote(image_prompt)
                     
-                    # FLUX AI model (Super realistic aur accurate image banata hai)
-                    image_url = f"https://image.pollinations.ai/prompt/{encoded}?model=flux&width=1024&height=1024&nologo=true&enhance=true"
+                    # FLUX AI engine (text aur YouTube thumbnails ke liye best) bina kisi logo ke
+                    image_url = f"https://image.pollinations.ai/prompt/{encoded}?model=flux&width={width}&height={height}&seed={seed}&nologo=true"
                     
-                    st.image(image_url, caption=f"🎨 {image_prompt}")
+                    st.image(image_url, caption="🎬 Generated Thumbnail")
                     st.session_state.messages.append({
                         "role": "assistant",
                         "type": "image",
                         "content": image_url,
-                        "caption": f"🎨 {image_prompt}"
+                        "caption": "🎬 Generated Thumbnail"
                     })
                 else:
                     st.markdown(response_text)
