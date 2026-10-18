@@ -5,21 +5,25 @@ import re
 
 st.set_page_config(page_title="AI Assistant", page_icon="🤖", layout="centered")
 
-# ChatGPT jaisa clean look aur sab buttons chupana
-hide_menu_style = """
+# Neeche aur ooper ke sab Streamlit badges/watermarks ko mukammal gayab karne ke liye CSS
+hide_all_style = """
     <style>
-    #MainMenu {visibility: hidden; display: none;}
-    header {visibility: hidden; display: none;}
-    footer {visibility: hidden; display: none;}
-    [data-testid="stToolbar"] {visibility: hidden; display: none;}
-    [data-testid="stDecoration"] {visibility: hidden; display: none;}
-    [data-testid="stStatusWidget"] {visibility: hidden; display: none;}
+    #MainMenu {visibility: hidden; display: none !important;}
+    header {visibility: hidden; display: none !important;}
+    footer {visibility: hidden; display: none !important;}
+    [data-testid="stToolbar"] {visibility: hidden; display: none !important;}
+    [data-testid="stDecoration"] {visibility: hidden; display: none !important;}
+    [data-testid="stStatusWidget"] {visibility: hidden; display: none !important;}
+    div[class*="viewerBadge"] {display: none !important;}
+    div[class*="ProfileContainer"] {display: none !important;}
+    div[class^="viewerBadge"] {display: none !important;}
+    a[href*="streamlit.io"] {display: none !important;}
     </style>
 """
-st.markdown(hide_menu_style, unsafe_allow_html=True)
+st.markdown(hide_all_style, unsafe_allow_html=True)
 
 st.title("🤖 AI Assistant")
-st.caption("Powered by Gemini AI • Supports Chat & Free Image Generation")
+st.caption("Smart AI • Text Chat & High Quality Image Generation")
 
 api_key = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=api_key)
@@ -27,18 +31,18 @@ genai.configure(api_key=api_key)
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ChatGPT jese Quick Starter Buttons (jab chat khali ho)
+# ChatGPT jese quick starter buttons
 if len(st.session_state.messages) == 0:
     st.write("### How can I help you today?")
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("🎨 Create an image of a cyber car"):
-            st.session_state.starter_prompt = "Create an image of a futuristic neon cyber sports car"
+        if st.button("🎨 Create a realistic car"):
+            st.session_state.starter_prompt = "Generate a photorealistic image of a luxury sports car parked on a modern city street"
     with col2:
-        if st.button("💡 Explain how AI works"):
-            st.session_state.starter_prompt = "Explain how Artificial Intelligence works in simple words."
+        if st.button("💡 Ask anything"):
+            st.session_state.starter_prompt = "Tell me 3 interesting facts about the universe."
 
-# Chat history display karna
+# Chat history
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         if message.get("type") == "image":
@@ -46,7 +50,7 @@ for message in st.session_state.messages:
         else:
             st.markdown(message["content"])
 
-# User prompt lena (input box se ya starter button se)
+# User prompt
 prompt = st.chat_input("Message AI Assistant...")
 if "starter_prompt" in st.session_state:
     prompt = st.session_state.pop("starter_prompt")
@@ -57,14 +61,17 @@ if prompt:
         st.markdown(prompt)
 
     try:
+        # Prompt ko behtar samajhne aur exact image banane ki instruction
         system_instruction = (
-            "You are a professional ChatGPT-like AI Assistant. "
-            "1. If the user asks to generate, create, draw, or make an image/picture/photo, "
-            "strictly respond with ONLY this format: [GENERATE_IMAGE: descriptive English visual prompt]. "
-            "2. For normal text questions: Always match the language of the user. "
-            "If they write in English, reply in English. "
-            "If they write in Roman Urdu (Urdu in English alphabet like 'kya haal hai'), reply naturally in polite Roman Urdu. "
-            "If they write in Urdu script, reply in Urdu. Be concise, clear, and helpful."
+            "You are an expert AI Assistant. "
+            "1. When the user asks to create, draw, generate, or make an image/picture/photo, "
+            "you MUST convert their exact request into a highly detailed, photorealistic visual English description. "
+            "Format strictly as: [GENERATE_IMAGE: highly detailed English description with visual details]. "
+            "Never ignore any detail the user mentioned. "
+            "2. For regular questions: Respond politely matching the user's language. "
+            "If user uses English -> reply in English. "
+            "If user uses Roman Urdu -> reply in Roman Urdu. "
+            "If user uses Urdu script -> reply in Urdu script."
         )
         model = genai.GenerativeModel(
             model_name="gemini-3.8-flash",
@@ -72,16 +79,18 @@ if prompt:
         )
         
         with st.chat_message("assistant"):
-            with st.spinner("Processing..."):
+            with st.spinner("Generating response..."):
                 response = model.generate_content(prompt)
                 response_text = response.text.strip()
                 
-                # Check karein agar user ne image mangi hai
+                # Image Generate karne ka block
                 if "[GENERATE_IMAGE:" in response_text:
                     match = re.search(r'\[GENERATE_IMAGE:\s*(.*?)\]', response_text)
                     image_prompt = match.group(1).strip() if match else prompt
                     encoded = urllib.parse.quote(image_prompt)
-                    image_url = f"https://image.pollinations.ai/prompt/{encoded}?width=1024&height=1024&nologo=true"
+                    
+                    # FLUX AI model (Super realistic aur accurate image banata hai)
+                    image_url = f"https://image.pollinations.ai/prompt/{encoded}?model=flux&width=1024&height=1024&nologo=true&enhance=true"
                     
                     st.image(image_url, caption=f"🎨 {image_prompt}")
                     st.session_state.messages.append({
