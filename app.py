@@ -28,19 +28,8 @@ if prompt := st.chat_input("Yahan likhein..."):
 
         try:
             genai.configure(api_key=api_key)
-            
-            # Google ka active naya model auto-select karein
-            model_name = "gemini-2.0-flash"
-            try:
-                for m in genai.list_models():
-                    if "generateContent" in m.supported_generation_methods:
-                        if "flash" in m.name:
-                            model_name = m.name
-                            break
-            except Exception:
-                pass
-
-            model = genai.GenerativeModel(model_name)
+            # Google ka latest 3.8 flash model
+            model = genai.GenerativeModel("gemini-3.8-flash")
             
             with st.chat_message("assistant"):
                 with st.spinner("AI soch raha hai..."):
